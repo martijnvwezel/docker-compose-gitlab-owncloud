@@ -1,0 +1,81 @@
+# docker compose setup 
+
+version: '2'
+
+services:
+
+  nginx:
+    image: jwilder/nginx-proxy
+    restart: always
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    labels:
+      - 'com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy=true'
+    volumes:
+      - '/var/run/docker.sock:/tmp/docker.sock:ro'
+      - '/srv/nginx/certs:/etc/nginx/certs:ro'
+      - '/srv/nginx/vhost.d:/etc/nginx/vhost.d'
+      - '/usr/share/nginx/html' 
+      - '/srv/nginx/conf.d:/etc/nginx/conf.d' 
+    
+  nginx-proxy2:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    restart: always
+    container_name: letsencrypt-nginx-proxy-companion
+    volumes_from:
+      - nginx
+    volumes:
+      - '/srv/nginx/certs:/etc/nginx/certs:rw'
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'  
+
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    depends_on:
+      - nginx
+    environment:
+      - VIRTUAL_HOST=gitlab.example.com
+      - LETSENCRYPT_HOST=gitlab.example.com
+      - LETSENCRYPT_EMAIL=email@example.com
+ 
+    volumes:
+      - '/srv/gitlab/config:/etc/gitlab'
+      - '/srv/gitlab/logs:/var/log/gitlab'
+      - '/srv/gitlab/data:/var/opt/gitlab'
+
+
+
+  owncloud:
+    image: owncloud
+    restart: always 
+    depends_on:
+      - nginx
+      - postgres 
+
+    environment: 
+      - VIRTUAL_HOST=owncloud.example.com
+      - LETSENCRYPT_HOST=owncloud.example.com
+      - LETSENCRYPT_EMAIL=email@example.com
+
+    links:
+      -  postgres
+    volumes:
+      - '/srv/owncloud/apps:/var/www/html/apps'
+      - '/srv/owncloud/config:/var/www/html/config'
+      - '/srv/owncloud/data:/var/www/html/data'
+
+
+
+  postgres:
+    image: 'postgres'
+    restart: always
+
+    environment:
+      -POSTGRES_PASSWORD: postgresqlpassword
+      -POSTGRES_USER: postgres
+    volumes:
+      -  '/srv/postgresql/data:/var/lib/postgresql/data' 
+
+
